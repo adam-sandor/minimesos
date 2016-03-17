@@ -2,9 +2,7 @@ package com.containersol.minimesos.mesos;
 
 import com.containersol.minimesos.config.AgentResourcesConfig;
 import com.containersol.minimesos.config.ClusterConfig;
-import com.containersol.minimesos.config.ConsulConfig;
 import com.containersol.minimesos.config.MesosAgentConfig;
-import com.containersol.minimesos.config.RegistratorConfig;
 import com.containersol.minimesos.config.ZooKeeperConfig;
 import com.containersol.minimesos.container.AbstractContainer;
 import com.containersol.minimesos.marathon.Marathon;
@@ -135,17 +133,6 @@ public class ClusterArchitecture {
                 configBuilder.withAgent(zooKeeper -> new MesosAgent(dockerClient, zooKeeper, agentConfig));
             }
 
-            // Consul (optional)
-            ConsulConfig consulConfig = clusterConfig.getConsul();
-            if (consulConfig != null) {
-                configBuilder.withConsul(new Consul(dockerClient, consulConfig));
-            }
-
-            RegistratorConfig registratorConfig = clusterConfig.getRegistrator();
-            if (registratorConfig != null) {
-                configBuilder.withRegistrator(consul -> new Registrator(dockerClient, consul, registratorConfig));
-            }
-
             return configBuilder;
         }
 
@@ -201,16 +188,6 @@ public class ClusterArchitecture {
             return this;
         }
 
-        public Builder withConsul(Consul consul) {
-            getContainers().add(consul);
-            return this;
-        }
-
-        public Builder withRegistrator(Registrator registrator) {
-            getContainers().add(registrator);
-            return this;
-        }
-
         /**
          * Includes the default {@link MesosMaster} instance in the cluster
          */
@@ -247,13 +224,6 @@ public class ClusterArchitecture {
                 throw new MesosArchitectureException("ZooKeeper is required by Mesos. You cannot add a Mesos node until you have created a ZooKeeper node. Please add a ZooKeeper node first.");
             }
             return withContainer(master::apply, Filter.zooKeeper());
-        }
-
-        public Builder withRegistrator(Function<Consul, Registrator> registrator) {
-            if (!isPresent(Filter.consul())) {
-                throw new MesosArchitectureException("Consul is required by Registrator. You cannot add a Registrator node until you have created a Consul node. Please add a Consul node first.");
-            }
-            return withContainer(registrator::apply, Filter.consul());
         }
 
         /**

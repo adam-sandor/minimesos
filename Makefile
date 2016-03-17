@@ -11,8 +11,6 @@ deps:
 	docker pull containersol/mesos-agent:0.25.0-0.2.70.ubuntu1404
 	docker pull mesosphere/marathon:v0.13.0
 	docker pull tutum/hello-world
-	docker pull containersol/consul-server:0.6
-	docker pull gliderlabs/registrator:v6
 
 clean:
 	./gradlew clean

@@ -58,9 +58,6 @@ Usage: minimesos [options] [command] [command options]
           --clusterConfig
              Path to file with cluster configuration. Defaults to minimesosFile
              Default: minimesosFile
-          --consul
-             Start consul container
-             Default: false
           --exposedHostPorts
              Expose the Mesos and Marathon UI ports on the host level (we
              recommend to enable this on Mac (e.g. when using docker-machine) and disable

@@ -229,19 +229,6 @@ public class CommandUp implements Command {
         }
         clusterConfig.setAgents(updatedConfigs);
 
-        // Consul
-        ConsulConfig consulConfig = clusterConfig.getConsul();
-        if (consulConfig == null) {
-            consulConfig = new ConsulConfig();
-        }
-        clusterConfig.setConsul(consulConfig);
-
-        //Registrator
-        RegistratorConfig registratorConfig = clusterConfig.getRegistrator();
-        if(registratorConfig ==null){
-            registratorConfig = new RegistratorConfig();
-        }
-        clusterConfig.setRegistrator(registratorConfig);
     }
 
     public MesosCluster getCluster() {

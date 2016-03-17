@@ -1,11 +1,12 @@
 package com.containersol.minimesos;
 
 import com.containersol.minimesos.cluster.MesosCluster;
-import com.containersol.minimesos.config.ConsulConfig;
-import com.containersol.minimesos.config.RegistratorConfig;
 import com.containersol.minimesos.docker.DockerContainersUtil;
 import com.containersol.minimesos.marathon.Marathon;
-import com.containersol.minimesos.mesos.*;
+import com.containersol.minimesos.mesos.ClusterArchitecture;
+import com.containersol.minimesos.mesos.DockerClientFactory;
+import com.containersol.minimesos.mesos.MesosAgent;
+import com.containersol.minimesos.mesos.MesosMaster;
 import com.containersol.minimesos.util.ResourceUtil;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.JsonMappingException;
@@ -39,8 +40,6 @@ public class MesosClusterTest {
             .withAgent(zooKeeper -> new MesosAgent(dockerClient, zooKeeper))
             .withAgent(zooKeeper -> new MesosAgent(dockerClient, zooKeeper))
             .withMarathon(zooKeeper -> new Marathon(dockerClient, zooKeeper))
-            .withConsul(new Consul(dockerClient, new ConsulConfig()))
-            .withRegistrator(consul -> new Registrator(dockerClient, consul, new RegistratorConfig()))
             .build();
 
     @ClassRule
@@ -89,7 +88,6 @@ public class MesosClusterTest {
         assertTrue(output.contains("export MINIMESOS_ZOOKEEPER=zk://" + CLUSTER.getZkContainer().getIpAddress() + ":2181\n"));
         assertTrue(output.contains("export MINIMESOS_MASTER=http://" + CLUSTER.getMasterContainer().getIpAddress() + ":5050\n"));
         assertTrue(output.contains("export MINIMESOS_MARATHON=http://" + CLUSTER.getMarathonContainer().getIpAddress() + ":8080\n"));
-        assertTrue(output.contains("export MINIMESOS_CONSUL=http://" + CLUSTER.getConsulContainer().getIpAddress() + ":8500\n"));
     }
 
     @Test
