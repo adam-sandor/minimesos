@@ -6,10 +6,8 @@ import com.containersol.minimesos.config.MesosAgentConfig;
 import com.containersol.minimesos.config.MesosMasterConfig;
 import com.containersol.minimesos.marathon.Marathon;
 import com.containersol.minimesos.mesos.ClusterArchitecture;
-import com.containersol.minimesos.mesos.DockerClientFactory;
 import com.containersol.minimesos.mesos.MesosAgent;
 import com.containersol.minimesos.mesos.MesosMaster;
-import com.github.dockerjava.api.DockerClient;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -20,29 +18,24 @@ public class ExposedPortsTest {
 
     private static final boolean EXPOSED_PORTS = true;
 
-    protected static final DockerClient dockerClient = DockerClientFactory.build();
-
-
     private MesosCluster cluster;
 
     @Before
     public void beforeTest() {
-
         MesosMasterConfig masterConfig = new MesosMasterConfig();
         MesosAgentConfig agentConfig = new MesosAgentConfig();
         MarathonConfig marathonConfig = new MarathonConfig();
 
-        ClusterArchitecture architecture = new ClusterArchitecture.Builder(dockerClient)
+        ClusterArchitecture architecture = new ClusterArchitecture.Builder()
                 .withZooKeeper()
-                .withMaster(zooKeeper -> new MesosMaster(dockerClient, zooKeeper, masterConfig))
-                .withAgent(zooKeeper -> new MesosAgent(dockerClient, zooKeeper, agentConfig))
-                .withMarathon(zooKeeper -> new Marathon(dockerClient, zooKeeper, marathonConfig))
+                .withMaster(zooKeeper -> new MesosMaster(zooKeeper, masterConfig))
+                .withAgent(zooKeeper -> new MesosAgent(zooKeeper, agentConfig))
+                .withMarathon(zooKeeper -> new Marathon(zooKeeper, marathonConfig))
                 .build();
 
         cluster = new MesosCluster(architecture);
         cluster.setExposedHostPorts(EXPOSED_PORTS);
         cluster.start();
-
     }
 
     @After

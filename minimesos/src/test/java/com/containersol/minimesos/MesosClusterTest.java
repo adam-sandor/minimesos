@@ -32,14 +32,13 @@ import static org.junit.Assert.*;
 
 public class MesosClusterTest {
 
-    protected static final DockerClient dockerClient = DockerClientFactory.build();
-    protected static final ClusterArchitecture CONFIG = new ClusterArchitecture.Builder(dockerClient)
+    protected static final ClusterArchitecture CONFIG = new ClusterArchitecture.Builder()
             .withZooKeeper()
             .withMaster()
-            .withAgent(zooKeeper -> new MesosAgent(dockerClient, zooKeeper))
-            .withAgent(zooKeeper -> new MesosAgent(dockerClient, zooKeeper))
-            .withAgent(zooKeeper -> new MesosAgent(dockerClient, zooKeeper))
-            .withMarathon(zooKeeper -> new Marathon(dockerClient, zooKeeper))
+            .withAgent(MesosAgent::new)
+            .withAgent(MesosAgent::new)
+            .withAgent(MesosAgent::new)
+            .withMarathon(Marathon::new)
             .build();
 
     @ClassRule
@@ -47,7 +46,7 @@ public class MesosClusterTest {
 
     @After
     public void after() {
-        DockerContainersUtil util = new DockerContainersUtil(CONFIG.dockerClient);
+        DockerContainersUtil util = new DockerContainersUtil();
         util.getContainers(false).filterByName(HelloWorldContainer.CONTAINER_NAME_PATTERN).kill().remove();
     }
 
@@ -135,7 +134,7 @@ public class MesosClusterTest {
 
     @Test
     public void dockerExposeResourcesPorts() throws Exception {
-        DockerClient docker = CONFIG.dockerClient;
+        DockerClient docker = DockerClientFactory.get();
         List<MesosAgent> containers = CLUSTER.getAgents();
 
         for (MesosAgent container : containers) {
@@ -150,9 +149,9 @@ public class MesosClusterTest {
 
     @Test
     public void testPullAndStartContainer() throws UnirestException {
-        HelloWorldContainer container = new HelloWorldContainer(CONFIG.dockerClient);
+        HelloWorldContainer container = new HelloWorldContainer();
         String containerId = CLUSTER.addAndStartContainer(container);
-        String ipAddress = DockerContainersUtil.getIpAddress(CONFIG.dockerClient, containerId);
+        String ipAddress = DockerContainersUtil.getIpAddress(containerId);
         String url = "http://" + ipAddress + ":" + HelloWorldContainer.SERVICE_PORT;
         assertEquals(200, Unirest.get(url).asString().getStatus());
     }
@@ -161,7 +160,7 @@ public class MesosClusterTest {
     public void testMasterLinkedToAgents() throws UnirestException {
         List<MesosAgent> containers = CLUSTER.getAgents();
         for (MesosAgent container : containers) {
-            InspectContainerResponse exec = CONFIG.dockerClient.inspectContainerCmd(container.getContainerId()).exec();
+            InspectContainerResponse exec = DockerClientFactory.get().inspectContainerCmd(container.getContainerId()).exec();
 
             List<Link> links = Arrays.asList(exec.getHostConfig().getLinks());
 

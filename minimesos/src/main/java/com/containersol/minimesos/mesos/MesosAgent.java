@@ -4,12 +4,12 @@ import com.containersol.minimesos.MinimesosException;
 import com.containersol.minimesos.cluster.MesosCluster;
 import com.containersol.minimesos.config.MesosAgentConfig;
 import com.containersol.minimesos.util.ResourceUtil;
-import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.CreateContainerCmd;
 import com.github.dockerjava.api.model.Bind;
 import com.github.dockerjava.api.model.ExposedPort;
 import com.github.dockerjava.api.model.Link;
-import org.apache.log4j.Logger;
+import lombok.Builder;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.Map;
@@ -18,45 +18,45 @@ import java.util.TreeMap;
 /**
  * Mesos Master adds the "agent" component for Apache Mesos
  */
+@Builder
+@Slf4j
 public class MesosAgent extends MesosContainer {
 
-    private static final Logger LOGGER = Logger.getLogger(MesosAgent.class);
+    private final MesosAgentConfig mesosAgentConfig;
 
-    private final MesosAgentConfig config;
-
-    public MesosAgent(DockerClient dockerClient, ZooKeeper zooKeeperContainer) {
-        this(dockerClient, zooKeeperContainer, new MesosAgentConfig());
+    public MesosAgent(ZooKeeper zooKeeperContainer) {
+        this(zooKeeperContainer, new MesosAgentConfig());
     }
 
-    public MesosAgent(DockerClient dockerClient, ZooKeeper zooKeeperContainer, MesosAgentConfig config) {
-        super(dockerClient, zooKeeperContainer, config);
-        this.config = config;
+    public MesosAgent(ZooKeeper zooKeeperContainer, MesosAgentConfig mesosAgentConfig) {
+        super(zooKeeperContainer, mesosAgentConfig);
+        this.mesosAgentConfig = mesosAgentConfig;
     }
 
-    public MesosAgent(DockerClient dockerClient, MesosCluster cluster, String uuid, String containerId) {
-        this(dockerClient, cluster, uuid, containerId, new MesosAgentConfig());
+    public MesosAgent(MesosCluster cluster, String uuid, String containerId) {
+        this(cluster, uuid, containerId, new MesosAgentConfig());
     }
 
-    private MesosAgent(DockerClient dockerClient, MesosCluster cluster, String uuid, String containerId, MesosAgentConfig config) {
-        super(dockerClient, cluster, uuid, containerId, config);
-        this.config = config;
+    private MesosAgent(MesosCluster cluster, String uuid, String containerId, MesosAgentConfig mesosAgentConfig) {
+        super(cluster, uuid, containerId, mesosAgentConfig);
+        this.mesosAgentConfig = mesosAgentConfig;
     }
 
     public String getResources() {
-        return config.getResources().asMesosString();
+        return mesosAgentConfig.getResources().asMesosString();
     }
 
 
     @Override
     public int getPortNumber() {
-        return config.getPortNumber();
+        return mesosAgentConfig.getPortNumber();
     }
 
     public CreateContainerCmd getBaseCommand() {
         String hostDir = MesosCluster.getHostDir().getAbsolutePath();
 
-        return dockerClient.createContainerCmd( getMesosImageName() + ":" + getMesosImageTag() )
-                .withName( getName() )
+        return DockerClientFactory.get().createContainerCmd(getMesosImageName() + ":" + getMesosImageTag())
+                .withName(getName())
                 .withPrivileged(true)
                 .withEnv(createMesosLocalEnvironment())
                 .withPid("host")
@@ -75,7 +75,7 @@ public class MesosAgent extends MesosContainer {
 
     @Override
     protected CreateContainerCmd dockerCommand() {
-        ArrayList<ExposedPort> exposedPorts= new ArrayList<>();
+        ArrayList<ExposedPort> exposedPorts = new ArrayList<>();
         exposedPorts.add(new ExposedPort(getPortNumber()));
         try {
             ArrayList<Integer> resourcePorts = ResourceUtil.parsePorts(getResources());
@@ -83,7 +83,7 @@ public class MesosAgent extends MesosContainer {
                 exposedPorts.add(new ExposedPort(port));
             }
         } catch (MinimesosException e) {
-            LOGGER.error("Port binding is incorrect: " + e.getMessage());
+            log.error("Port binding is incorrect: {}", e.getMessage());
         }
 
         return getBaseCommand()
@@ -93,7 +93,7 @@ public class MesosAgent extends MesosContainer {
 
     @Override
     public Map<String, String> getDefaultEnvVars() {
-        Map<String,String> envs = new TreeMap<>();
+        Map<String, String> envs = new TreeMap<>();
         envs.put("MESOS_RESOURCES", getResources());
         envs.put("MESOS_PORT", String.valueOf(getPortNumber()));
         envs.put("MESOS_MASTER", getFormattedZKAddress());

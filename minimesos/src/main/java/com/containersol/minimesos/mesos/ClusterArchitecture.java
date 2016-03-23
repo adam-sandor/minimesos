@@ -6,7 +6,6 @@ import com.containersol.minimesos.config.MesosAgentConfig;
 import com.containersol.minimesos.config.ZooKeeperConfig;
 import com.containersol.minimesos.container.AbstractContainer;
 import com.containersol.minimesos.marathon.Marathon;
-import com.github.dockerjava.api.DockerClient;
 import org.apache.log4j.Logger;
 
 import java.util.List;
@@ -22,7 +21,7 @@ import static com.containersol.minimesos.mesos.ClusterContainers.Filter;
  * For example, the simplest cluster you could create is:
  * <p>
  * <code>
- * new ClusterArchitecture.Builder().build();
+ * new ClusterArchitecture.Builder().get();
  * </code>
  * <p>
  * Which would create a cluster comprising of ZooKeeper, a Mesos Master and a single Mesos agent. This is the minimum viable cluster.
@@ -30,32 +29,32 @@ import static com.containersol.minimesos.mesos.ClusterContainers.Filter;
  * like this (where MyContainer extends from {@link AbstractContainer}):
  * <p><p>
  * <code>
- * new ClusterArchitecture.Builder().withContainer(new MyContainer(...)).build();
+ * new ClusterArchitecture.Builder().withContainer(new MyContainer(...)).get();
  * </code>
  * <p><p>
  * To add more zookeepers, masters or agents, you can simply use (note that when adding masters or agents, zookeeper must be added first, since Mesos requires a link to the ZooKeeper container.):
  * <p>
  * <code>
- * new ClusterArchitecture.Builder().withZooKeeper().withZooKeeper().withAgent().withAgent().withAgent().build();
+ * new ClusterArchitecture.Builder().withZooKeeper().withZooKeeper().withAgent().withAgent().withAgent().get();
  * </code>
  * <p><p>
  * If you need to provide a custom Mesos(Agent/Master) you can provide your own. This will inject a reference to the zooKeeper container, so the Mesos can generate the zkUrl to ZooKeeper.
  * <p>
  * <code>
- * new ClusterArchitecture.Builder().withZooKeeper().withAgent(zooKeeper -> new MyAgent(..., zooKeeper)).build();
+ * new ClusterArchitecture.Builder().withZooKeeper().withAgent(zooKeeper -> new MyAgent(..., zooKeeper)).get();
  * </code>
  * <p><p>
  * If you want to provide a completely custom container, you can inject an instance of any other container using a filter.
  * Filters are basically instanceof checks. For example, if you needed a reference to the master for some reason:
  * <p>
  * <code>
- * new ClusterArchitecture.Builder().withContainer(mesosMaster -> new MyContainer(..., mesosMaster), ClusterContainers.Filter.mesosMaster()).build();
+ * new ClusterArchitecture.Builder().withContainer(mesosMaster -> new MyContainer(..., mesosMaster), ClusterContainers.Filter.mesosMaster()).get();
  * </code>
  * <p><p>
  * Finally, for the super-leet, you could inject a reference of your own container, into a new container:
  * <p>
  * <code>
- * new ClusterArchitecture.Builder().withContainer(new MySimpleContainer(...)).withContainer(mySimpleContainer -> new MyInjectedContainer(..., mySimpleContainer), abstractContainer -> abstractContainer instanceof MySimpleContainer).build();
+ * new ClusterArchitecture.Builder().withContainer(new MySimpleContainer(...)).withContainer(mySimpleContainer -> new MyInjectedContainer(..., mySimpleContainer), abstractContainer -> abstractContainer instanceof MySimpleContainer).get();
  * </code>
  */
 public class ClusterArchitecture {
@@ -63,15 +62,11 @@ public class ClusterArchitecture {
     private final ClusterContainers clusterContainers = new ClusterContainers();
     private final ClusterConfig clusterConfig;
 
-    public final DockerClient dockerClient;
-
-    public ClusterArchitecture(DockerClient dockerClient) {
-        this.dockerClient = dockerClient;
+    public ClusterArchitecture() {
         this.clusterConfig = new ClusterConfig();
     }
 
-    private ClusterArchitecture(DockerClient dockerClient, ClusterConfig clusterConfig) {
-        this.dockerClient = dockerClient;
+    public ClusterArchitecture(ClusterConfig clusterConfig) {
         this.clusterConfig = clusterConfig;
     }
 
@@ -88,29 +83,16 @@ public class ClusterArchitecture {
      */
     public static class Builder {
 
-        private static final Logger LOGGER = Logger.getLogger(ClusterArchitecture.class);
+        private static final Logger log = Logger.getLogger(ClusterArchitecture.class);
 
         private final ClusterArchitecture clusterArchitecture;
-        private final DockerClient dockerClient;
 
-        /**
-         * Create a new builder with the default docker client
-         */
         public Builder() {
-            this(DockerClientFactory.build());
-        }
-
-        /**
-         * Create a new builder with the provided docker client
-         */
-        public Builder(DockerClient dockerClient) {
-            this.dockerClient = dockerClient;
-            this.clusterArchitecture = new ClusterArchitecture(dockerClient);
+            this.clusterArchitecture = new ClusterArchitecture(new ClusterConfig());
         }
 
         private Builder(ClusterConfig clusterConfig) {
-            this.dockerClient = DockerClientFactory.build();
-            this.clusterArchitecture = new ClusterArchitecture(dockerClient, clusterConfig);
+            this.clusterArchitecture = new ClusterArchitecture(clusterConfig);
         }
 
         /**
@@ -121,16 +103,15 @@ public class ClusterArchitecture {
          */
         static public ClusterArchitecture.Builder createCluster(ClusterConfig clusterConfig) {
             Builder configBuilder = new Builder(clusterConfig);
-            DockerClient dockerClient = configBuilder.getDockerClient();
 
             configBuilder.withZooKeeper(clusterConfig.getZookeeper());
-            configBuilder.withMaster(zooKeeper -> new MesosMaster(dockerClient, zooKeeper, clusterConfig.getMaster()));
-            configBuilder.withMarathon(zooKeeper -> new Marathon(dockerClient, zooKeeper, clusterConfig.getMarathon()));
+            configBuilder.withMaster(zooKeeper -> new MesosMaster(zooKeeper, clusterConfig.getMaster()));
+            configBuilder.withMarathon(zooKeeper -> new Marathon(zooKeeper, clusterConfig.getMarathon()));
 
             // creation of agents
             List<MesosAgentConfig> agentConfigs = clusterConfig.getAgents();
             for (MesosAgentConfig agentConfig : agentConfigs) {
-                configBuilder.withAgent(zooKeeper -> new MesosAgent(dockerClient, zooKeeper, agentConfig));
+                configBuilder.withAgent(zooKeeper -> new MesosAgent(zooKeeper, agentConfig));
             }
 
             return configBuilder;
@@ -147,21 +128,12 @@ public class ClusterArchitecture {
         }
 
         /**
-         * Return the containers currently in the cluster. Note that this method is not checked. If you want to start containers, use {@see Builder.build()}
+         * Return the containers currently in the cluster. Note that this method is not checked. If you want to start containers, use {@see Builder.get()}
          *
          * @return List of containers wrapped in a {@link ClusterContainers} object
          */
         public ClusterContainers getContainers() {
             return clusterArchitecture.getClusterContainers();
-        }
-
-        /**
-         * Docker client getter
-         *
-         * @return docker client
-         */
-        public DockerClient getDockerClient() {
-            return dockerClient;
         }
 
         /**
@@ -175,7 +147,7 @@ public class ClusterArchitecture {
          * Be explicit about the version of the image to use.
          */
         public Builder withZooKeeper(ZooKeeperConfig zooKeeperConfig) {
-            return withZooKeeper(new ZooKeeper(dockerClient, zooKeeperConfig));
+            return withZooKeeper(new ZooKeeper(zooKeeperConfig));
         }
 
         /**
@@ -192,14 +164,14 @@ public class ClusterArchitecture {
          * Includes the default {@link MesosMaster} instance in the cluster
          */
         public Builder withMaster() {
-            return withMaster(zooKeeper -> new MesosMaster(dockerClient, zooKeeper));
+            return withMaster(zooKeeper -> new MesosMaster(zooKeeper));
         }
 
         /**
          * Includes the default {@link MesosAgent} instance in the cluster
          */
         public Builder withAgent() {
-            return withAgent(zooKeeper -> new MesosAgent(dockerClient, zooKeeper));
+            return withAgent(zooKeeper -> new MesosAgent(zooKeeper));
         }
 
         /**
@@ -211,7 +183,7 @@ public class ClusterArchitecture {
             AgentResourcesConfig resources = AgentResourcesConfig.fromString(agentResourcesConfig);
             MesosAgentConfig config = new MesosAgentConfig();
             config.setResources(resources);
-            return withAgent(zooKeeper -> new MesosAgent(dockerClient, zooKeeper, config));
+            return withAgent(zooKeeper -> new MesosAgent(zooKeeper, config));
         }
 
         /**
@@ -272,15 +244,15 @@ public class ClusterArchitecture {
 
         private void checkMinimumViableCluster() {
             if (!isPresent(Filter.zooKeeper())) { // Must check for zk first, as it is required by the master
-                LOGGER.info("Instance of ZooKeeper not found. Adding ZooKeeper.");
+                log.info("Instance of ZooKeeper not found. Adding ZooKeeper.");
                 withZooKeeper();
             }
             if (!isPresent(Filter.mesosMaster())) {
-                LOGGER.info("Instance of MesosMaster not found. Adding MesosMaster.");
+                log.info("Instance of MesosMaster not found. Adding MesosMaster.");
                 withMaster();
             }
             if (!isPresent(Filter.mesosAgent())) {
-                LOGGER.info("Instance of MesosAgent not found. Adding MesosAgent.");
+                log.info("Instance of MesosAgent not found. Adding MesosAgent.");
                 withAgent();
             }
         }

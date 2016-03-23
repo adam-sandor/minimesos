@@ -19,7 +19,7 @@ import java.util.Map;
 @Parameters(separators = "=", commandDescription = "Global options")
 public class Main {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(Main.class);
+    private static final Logger log = LoggerFactory.getLogger(Main.class);
 
     private static final int EXIT_CODE_OK = 0;
     private static final int EXIT_CODE_ERR = 1;
@@ -48,7 +48,7 @@ public class Main {
                 System.exit(rc);
             }
         } catch (MinimesosException mme) {
-            LOGGER.error(mme.getMessage());
+            log.error(mme.getMessage());
             System.exit(EXIT_CODE_ERR);
         }
     }
@@ -71,7 +71,7 @@ public class Main {
         try {
             jc.parse(args);
         } catch (Exception e) {
-            LOGGER.error("Failed to parse parameters. " + e.getMessage() + "\n");
+            log.error("Failed to parse parameters. " + e.getMessage() + "\n");
             printUsage(null);
             return EXIT_CODE_ERR;
         }
@@ -95,7 +95,7 @@ public class Main {
         Command parsedCommand = commands.get(jc.getParsedCommand());
 
         if (parsedCommand == null) {
-            LOGGER.error("No such command: " + jc.getParsedCommand());
+            log.error("No such command: " + jc.getParsedCommand());
             return EXIT_CODE_ERR;
         } else if (CommandHelp.CLINAME.equals(parsedCommand.getName())) {
             printUsage(null);

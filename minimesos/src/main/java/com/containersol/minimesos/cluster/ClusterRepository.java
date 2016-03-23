@@ -14,7 +14,7 @@ import java.nio.file.Paths;
  */
 public class ClusterRepository {
 
-    private static Logger LOGGER = Logger.getLogger(ClusterRepository.class);
+    private static Logger log = Logger.getLogger(ClusterRepository.class);
 
     public static final String MINIMESOS_FILE_PROPERTY = "minimesos.cluster";
 
@@ -49,9 +49,9 @@ public class ClusterRepository {
             FileUtils.forceMkdir(dotMinimesosDir);
             String clusterIdPath = dotMinimesosDir.getAbsolutePath() + "/" + MINIMESOS_FILE_PROPERTY;
             Files.write(Paths.get(clusterIdPath), clusterId.getBytes());
-            LOGGER.debug("Writing cluster ID " + clusterId + " to " + clusterIdPath);
+            log.debug("Writing cluster ID " + clusterId + " to " + clusterIdPath);
         } catch (IOException ie) {
-            LOGGER.error("Could not write .minimesos folder", ie);
+            log.error("Could not write .minimesos folder", ie);
             throw new RuntimeException(ie);
         }
     }
@@ -67,7 +67,7 @@ public class ClusterRepository {
         try {
             File minimesosFile = getMinimesosFile();
             String clusterId = FileUtils.readFileToString(minimesosFile);
-            LOGGER.debug("Reading cluster ID from " + minimesosFile + ": " + clusterId);
+            log.debug("Reading cluster ID from " + minimesosFile + ": " + clusterId);
             return clusterId;
         } catch (IOException e) {
             return null;
@@ -98,7 +98,7 @@ public class ClusterRepository {
 
     private static void deleteMinimesosFile() {
         File minimesosFile = getMinimesosFile();
-        LOGGER.debug("Deleting minimesos.cluster file at " + getMinimesosFile());
+        log.debug("Deleting minimesos.cluster file at " + getMinimesosFile());
         if (minimesosFile.exists()) {
             try {
                 FileUtils.forceDelete(minimesosFile);

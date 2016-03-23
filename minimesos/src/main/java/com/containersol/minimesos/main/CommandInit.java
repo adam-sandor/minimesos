@@ -24,7 +24,7 @@ import static java.lang.String.format;
 @Parameters(separators = "=", commandDescription = "Initialize a minimesosFile")
 public class CommandInit implements Command {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(CommandInit.class);
+    private static final Logger log = LoggerFactory.getLogger(CommandInit.class);
 
     public static final String CLINAME = "init";
 
@@ -57,7 +57,7 @@ public class CommandInit implements Command {
             throw new MinimesosException(format("Could not initialize minimesosFile: %s", e.getMessage()), e);
         }
 
-        LOGGER.info("Initialized minimesosFile in this directory");
+        log.info("Initialized minimesosFile in this directory");
 
         try {
             UserPrincipalLookupService lookupService = FileSystems.getDefault().getUserPrincipalLookupService();

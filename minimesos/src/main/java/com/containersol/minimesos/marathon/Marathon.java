@@ -4,8 +4,8 @@ import com.containersol.minimesos.MinimesosException;
 import com.containersol.minimesos.cluster.MesosCluster;
 import com.containersol.minimesos.config.MarathonConfig;
 import com.containersol.minimesos.container.AbstractContainer;
+import com.containersol.minimesos.mesos.DockerClientFactory;
 import com.containersol.minimesos.mesos.ZooKeeper;
-import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.CreateContainerCmd;
 import com.github.dockerjava.api.model.ExposedPort;
 import com.github.dockerjava.api.model.Ports;
@@ -28,23 +28,23 @@ import static com.jayway.awaitility.Awaitility.await;
  */
 public class Marathon extends AbstractContainer {
 
-    private static Logger LOGGER = Logger.getLogger(MesosCluster.class);
+    private static Logger log = Logger.getLogger(MesosCluster.class);
 
     private final MarathonConfig config;
     private ZooKeeper zooKeeper;
 
-    public Marathon(DockerClient dockerClient, ZooKeeper zooKeeper) {
-        this(dockerClient, zooKeeper, new MarathonConfig());
+    public Marathon(ZooKeeper zooKeeper) {
+        this(zooKeeper, new MarathonConfig());
     }
 
-    public Marathon(DockerClient dockerClient, ZooKeeper zooKeeper, MarathonConfig config) {
-        super(dockerClient);
+    public Marathon(ZooKeeper zooKeeper, MarathonConfig config) {
+        super();
         this.zooKeeper = zooKeeper;
         this.config = config;
     }
 
-    public Marathon(DockerClient dockerClient, MesosCluster cluster, String uuid, String containerId) {
-        super(dockerClient, cluster, uuid, containerId);
+    public Marathon(MesosCluster cluster, String uuid, String containerId) {
+        super(cluster, uuid, containerId);
         this.config = new MarathonConfig();
     }
 
@@ -69,7 +69,7 @@ public class Marathon extends AbstractContainer {
         if (getCluster().isExposedHostPorts()) {
             portBindings.bind(exposedPort, Ports.Binding(MarathonConfig.MARATHON_PORT));
         }
-        return dockerClient.createContainerCmd(config.getImageName() + ":" + config.getImageTag())
+        return DockerClientFactory.get().createContainerCmd(config.getImageName() + ":" + config.getImageTag())
                 .withName( getName() )
                 .withExtraHosts("minimesos-zookeeper:" + this.zooKeeper.getIpAddress())
                 .withCmd("--master", "zk://minimesos-zookeeper:2181/mesos", "--zk", "zk://minimesos-zookeeper:2181/marathon")
@@ -91,17 +91,17 @@ public class Marathon extends AbstractContainer {
             JSONObject deployResponse = response.getBody().getObject();
 
             if (response.getStatus() == HttpStatus.SC_CREATED) {
-                LOGGER.debug(deployResponse);
+                log.debug(deployResponse);
             } else {
                 throw new MinimesosException("Marathon did not accept the app: " + deployResponse);
             }
 
         } catch (UnirestException e) {
             String msg = "Could not deploy app on Marathon at " + marathonEndpoint + " => " + e.getMessage();
-            LOGGER.error(msg);
+            log.error(msg);
             throw new MinimesosException(msg, e);
         }
-        LOGGER.info(String.format("Installing an app on marathon %s", getMarathonEndpoint()));
+        log.info(String.format("Installing an app on marathon %s", getMarathonEndpoint()));
     }
 
     /**
@@ -116,7 +116,7 @@ public class Marathon extends AbstractContainer {
                 return;
             }
         } catch (UnirestException e) {
-            LOGGER.error("Could not retrieve apps from Marathon at " + marathonEndpoint);
+            log.error("Could not retrieve apps from Marathon at " + marathonEndpoint);
             return;
         }
 
@@ -127,7 +127,7 @@ public class Marathon extends AbstractContainer {
             try {
                 Unirest.delete(marathonEndpoint + "/v2/apps" + appId).asJson();
             } catch (UnirestException e) {
-                LOGGER.error("Could not delete app " + appId + " at " + marathonEndpoint);
+                log.error("Could not delete app " + appId + " at " + marathonEndpoint);
             }
         }
     }

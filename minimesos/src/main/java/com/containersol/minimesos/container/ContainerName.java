@@ -10,7 +10,7 @@ public class ContainerName {
     }
 
     /**
-     * @param container to build the name for
+     * @param container to get the name for
      * @return name of the container
      */
     public static String get(AbstractContainer container) {

@@ -23,7 +23,7 @@ import static org.junit.Assert.assertTrue;
  */
 public class DiscoverySystemTest {
 
-    public static final Logger LOGGER = Logger.getLogger(DiscoverySystemTest.class);
+    public static final Logger log = Logger.getLogger(DiscoverySystemTest.class);
 
     private static final ClusterArchitecture CONFIG = new ClusterArchitecture.Builder()
             .withZooKeeper()
@@ -41,20 +41,20 @@ public class DiscoverySystemTest {
 
         String ipAddress = CLUSTER.getMasterContainer().getIpAddress();
 
-        LOGGER.info("Starting Scheduler, connected to " + ipAddress);
+        log.info("Starting Scheduler, connected to " + ipAddress);
         SchedulerContainer scheduler = new SchedulerContainer(CONFIG.dockerClient, ipAddress);
 
         // Cluster now has responsibility to shut down container
         CLUSTER.addAndStartContainer(scheduler);
 
-        LOGGER.info("Started Scheduler on " + scheduler.getIpAddress());
+        log.info("Started Scheduler on " + scheduler.getIpAddress());
     }
 
     @Test
     public void testNodeDiscoveryRest() {
 
         long timeout = 120;
-        DockerContainersUtil util = new DockerContainersUtil(CONFIG.dockerClient);
+        DockerContainersUtil util = new DockerContainersUtil();
 
         final Set<String> ipAddresses = new HashSet<>();
         Awaitility.await("9 expected executors did not come up").atMost(timeout, TimeUnit.SECONDS).until(() -> {
@@ -71,13 +71,13 @@ public class DiscoverySystemTest {
     @AfterClass
     public static void removeExecutors() {
 
-        DockerContainersUtil util = new DockerContainersUtil(CONFIG.dockerClient);
+        DockerContainersUtil util = new DockerContainersUtil();
 
         // stop scheduler, otherwise it keeps on scheduling new executors as soon as they are stopped
         util.getContainers(false).filterByImage(SchedulerContainer.SCHEDULER_IMAGE).kill().remove();
 
         DockerContainersUtil executors = util.getContainers(false).filterByImage(Configuration.DEFAULT_EXECUTOR_IMAGE);
-        LOGGER.info( String.format("Found %d containers to stop and remove", executors.size()) );
+        log.info( String.format("Found %d containers to stop and remove", executors.size()) );
         executors.kill(true).remove();
 
     }

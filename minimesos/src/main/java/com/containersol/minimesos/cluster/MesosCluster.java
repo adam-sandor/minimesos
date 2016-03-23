@@ -10,12 +10,13 @@ import com.containersol.minimesos.marathon.Marathon;
 import com.containersol.minimesos.mesos.*;
 import com.containersol.minimesos.state.State;
 import com.containersol.minimesos.util.Predicate;
-import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.InternalServerErrorException;
 import com.github.dockerjava.api.NotFoundException;
 import com.github.dockerjava.api.model.Container;
 import com.jayway.awaitility.Awaitility;
 import com.mashape.unirest.http.exceptions.UnirestException;
+import lombok.Builder;
+import lombok.Singular;
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 import org.json.JSONObject;
@@ -34,18 +35,18 @@ import java.util.stream.Collectors;
 /**
  * Mesos cluster with lifecycle methods such as start, install, info, state, stop and destroy.
  */
+@Builder
 public class MesosCluster extends ExternalResource {
 
-    private static Logger LOGGER = Logger.getLogger(MesosCluster.class);
+    private static Logger log = Logger.getLogger(MesosCluster.class);
 
     public static final String MINIMESOS_HOST_DIR_PROPERTY = "minimesos.host.dir";
-
-    private static DockerClient dockerClient = DockerClientFactory.build();
 
     private String clusterId;
 
     private final ClusterConfig clusterConfig;
 
+    @Singular
     private List<AbstractContainer> containers = Collections.synchronizedList(new ArrayList<>());
 
     private boolean running = false;
@@ -87,7 +88,7 @@ public class MesosCluster extends ExternalResource {
         this.clusterId = clusterId;
         this.clusterConfig = new ClusterConfig();
 
-        List<Container> dockerContainers = dockerClient.listContainersCmd().exec();
+        List<Container> dockerContainers = DockerClientFactory.get().listContainersCmd().exec();
         Collections.sort(dockerContainers, (c1, c2) -> Long.compare(c1.getCreated(), c2.getCreated()));
 
         ZooKeeper zookeeper = null;
@@ -103,14 +104,14 @@ public class MesosCluster extends ExternalResource {
 
                 switch (role) {
                     case "zookeeper":
-                        zookeeper = new ZooKeeper(dockerClient, this, uuid, containerId);
+                        zookeeper = new ZooKeeper(this, uuid, containerId);
                         this.containers.add(zookeeper);
                         break;
                     case "agent":
-                        this.containers.add(new MesosAgent(dockerClient, this, uuid, containerId));
+                        this.containers.add(new MesosAgent(this, uuid, containerId));
                         break;
                     case "master":
-                        MesosMaster master = new MesosMaster(dockerClient, this, uuid, containerId);
+                        MesosMaster master = new MesosMaster(this, uuid, containerId);
                         this.containers.add(master);
                         // restore "exposed ports" attribute
                         Container.Port[] ports = container.getPorts();
@@ -123,7 +124,7 @@ public class MesosCluster extends ExternalResource {
                         }
                         break;
                     case "marathon":
-                        this.containers.add(new Marathon(dockerClient, this, uuid, containerId));
+                        this.containers.add(new Marathon(this, uuid, containerId));
                         break;
                 }
 
@@ -164,7 +165,7 @@ public class MesosCluster extends ExternalResource {
             throw new IllegalStateException("Cluster " + clusterId + " is already running");
         }
 
-        LOGGER.debug("Cluster " + getClusterId() + " - start");
+        log.debug("Cluster " + getClusterId() + " - start");
         this.containers.forEach((container) -> container.start(timeoutSeconds));
         // wait until the given number of agents are registered
         getMasterContainer().waitFor();
@@ -211,16 +212,16 @@ public class MesosCluster extends ExternalResource {
      * Containers are stopped in reverse order of their creation
      */
     public void stop() {
-        LOGGER.debug("Cluster " + getClusterId() + " - stop");
+        log.debug("Cluster " + getClusterId() + " - stop");
 
         if (containers.size() > 0) {
             for (int i = containers.size() - 1; i >= 0; i--) {
                 AbstractContainer container = containers.get(i);
-                LOGGER.debug("Removing container [" + container.getContainerId() + "]");
+                log.debug("Removing container [" + container.getContainerId() + "]");
                 try {
                     container.remove();
                 } catch (NotFoundException e) {
-                    LOGGER.error(String.format("Cannot remove container %s, maybe it's already dead?", container.getContainerId()));
+                    log.error(String.format("Cannot remove container %s, maybe it's already dead?", container.getContainerId()));
                 }
             }
         }
@@ -244,7 +245,7 @@ public class MesosCluster extends ExternalResource {
         }
 
         String marathonIp = marathon.getIpAddress();
-        LOGGER.debug(String.format("Installing %s app on marathon %s", marathonJson, marathonIp));
+        log.debug(String.format("Installing %s app on marathon %s", marathonJson, marathonIp));
 
         marathon.deployApp(marathonJson);
     }
@@ -253,7 +254,7 @@ public class MesosCluster extends ExternalResource {
      * Destroys the Mesos cluster and its containers
      */
     public void destroy() {
-        LOGGER.debug("Cluster " + getClusterId() + " - destroy");
+        log.debug("Cluster " + getClusterId() + " - destroy");
 
         if (clusterId != null) {
 
@@ -262,16 +263,12 @@ public class MesosCluster extends ExternalResource {
                 marathon.killAllApps();
             }
 
-            List<Container> containers = dockerClient.listContainersCmd().exec();
-            for (Container container : containers) {
-                if (ContainerName.belongsToCluster(container.getNames(), clusterId)) {
-                    dockerClient.removeContainerCmd(container.getId()).withForce().withRemoveVolumes(true).exec();
-                }
-            }
+            List<Container> containers = DockerClientFactory.get().listContainersCmd().exec();
+            containers.stream().filter(container -> ContainerName.belongsToCluster(container.getNames(), clusterId)).forEach(container -> DockerClientFactory.get().removeContainerCmd(container.getId()).withForce().withRemoveVolumes(true).exec());
 
-            LOGGER.info("Destroyed minimesos cluster " + clusterId);
+            log.info("Destroyed minimesos cluster " + clusterId);
         } else {
-            LOGGER.info("Minimesos cluster is not running");
+            log.info("Minimesos cluster is not running");
         }
     }
 
@@ -286,13 +283,13 @@ public class MesosCluster extends ExternalResource {
         container.setCluster(this);
         containers.add(container);
 
-        LOGGER.debug(String.format("Starting %s (%s) container", container.getName(), container.getContainerId()));
+        log.debug(String.format("Starting %s (%s) container", container.getName(), container.getContainerId()));
 
         try {
             container.start(timeout);
         } catch (Exception exc) {
             String msg = String.format("Failed to start %s (%s) container", container.getName(), container.getContainerId());
-            LOGGER.error(msg, exc);
+            log.error(msg, exc);
             throw new MinimesosException(msg, exc);
         }
 
@@ -361,14 +358,13 @@ public class MesosCluster extends ExternalResource {
     }
 
     private static void destroyContainers(String clusterId) {
-        DockerClient dockerClient = DockerClientFactory.build();
-        List<Container> containers = dockerClient.listContainersCmd().exec();
+        List<Container> containers = DockerClientFactory.get().listContainersCmd().exec();
         for (Container container : containers) {
             if (ContainerName.belongsToCluster(container.getNames(), clusterId)) {
-                dockerClient.removeContainerCmd(container.getId()).withForce().withRemoveVolumes(true).exec();
+                DockerClientFactory.get().removeContainerCmd(container.getId()).withForce().withRemoveVolumes(true).exec();
             }
         }
-        LOGGER.info("Destroyed minimesos cluster " + clusterId);
+        log.info("Destroyed minimesos cluster " + clusterId);
     }
 
     public List<AbstractContainer> getContainers() {
@@ -429,7 +425,7 @@ public class MesosCluster extends ExternalResource {
             try {
                 return predicate.test(State.fromJSON(getMasterContainer().getStateInfoJSON().toString()));
             } catch (InternalServerErrorException e) {
-                LOGGER.error(e);
+                log.error(e);
                 // This probably means that the mesos cluster isn't ready yet..
                 return false;
             }
