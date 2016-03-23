@@ -45,8 +45,6 @@ configurations {
 }
 
 dependencies {
-    provided 'org.projectlombok:lombok:1.16.8'
-
     compile 'org.codehaus.groovy:groovy-all:2.4.5'
     compile 'com.github.docker-java:docker-java:4f094c112'
     compile 'junit:junit:4.11'

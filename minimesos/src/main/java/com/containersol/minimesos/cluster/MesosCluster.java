@@ -15,8 +15,6 @@ import com.github.dockerjava.api.NotFoundException;
 import com.github.dockerjava.api.model.Container;
 import com.jayway.awaitility.Awaitility;
 import com.mashape.unirest.http.exceptions.UnirestException;
-import lombok.Builder;
-import lombok.Singular;
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 import org.json.JSONObject;
@@ -35,7 +33,6 @@ import java.util.stream.Collectors;
 /**
  * Mesos cluster with lifecycle methods such as start, install, info, state, stop and destroy.
  */
-@Builder
 public class MesosCluster extends ExternalResource {
 
     private static Logger log = Logger.getLogger(MesosCluster.class);
@@ -46,7 +43,6 @@ public class MesosCluster extends ExternalResource {
 
     private final ClusterConfig clusterConfig;
 
-    @Singular
     private List<AbstractContainer> containers = Collections.synchronizedList(new ArrayList<>());
 
     private boolean running = false;

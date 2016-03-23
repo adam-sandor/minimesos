@@ -8,8 +8,7 @@ import com.github.dockerjava.api.command.CreateContainerCmd;
 import com.github.dockerjava.api.model.Bind;
 import com.github.dockerjava.api.model.ExposedPort;
 import com.github.dockerjava.api.model.Link;
-import lombok.Builder;
-import lombok.extern.slf4j.Slf4j;
+import org.apache.log4j.Logger;
 
 import java.util.ArrayList;
 import java.util.Map;
@@ -18,9 +17,8 @@ import java.util.TreeMap;
 /**
  * Mesos Master adds the "agent" component for Apache Mesos
  */
-@Builder
-@Slf4j
 public class MesosAgent extends MesosContainer {
+    private static Logger LOGGER = Logger.getLogger(MesosAgent.class);
 
     private final MesosAgentConfig mesosAgentConfig;
 
@@ -83,7 +81,7 @@ public class MesosAgent extends MesosContainer {
                 exposedPorts.add(new ExposedPort(port));
             }
         } catch (MinimesosException e) {
-            log.error("Port binding is incorrect: {}", e.getMessage());
+            LOGGER.error("Port binding is incorrect: " + e.getMessage());
         }
 
         return getBaseCommand()
