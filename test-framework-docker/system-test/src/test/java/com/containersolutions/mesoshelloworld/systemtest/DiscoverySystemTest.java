@@ -42,7 +42,7 @@ public class DiscoverySystemTest {
         String ipAddress = CLUSTER.getMasterContainer().getIpAddress();
 
         log.info("Starting Scheduler, connected to " + ipAddress);
-        SchedulerContainer scheduler = new SchedulerContainer(CONFIG.dockerClient, ipAddress);
+        SchedulerContainer scheduler = new SchedulerContainer(ipAddress);
 
         // Cluster now has responsibility to shut down container
         CLUSTER.addAndStartContainer(scheduler);
